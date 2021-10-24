@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -135,14 +136,16 @@ type SendPaymentRequest struct {
 type routerClient struct {
 	client       routerrpc.RouterClient
 	routerKitMac serializedMacaroon
+	network      *chaincfg.Params
 }
 
 func newRouterClient(conn *grpc.ClientConn,
-	routerKitMac serializedMacaroon) *routerClient {
+	routerKitMac serializedMacaroon, network *chaincfg.Params) *routerClient {
 
 	return &routerClient{
 		client:       routerrpc.NewRouterClient(conn),
 		routerKitMac: routerKitMac,
+		network:      network,
 	}
 }
 
@@ -189,6 +192,20 @@ func (r *routerClient) SendPayment(ctx context.Context,
 		rpcReq.DestCustomRecords[record.KeySendType] = preimage[:]
 		hash := preimage.Hash()
 		request.PaymentHash = &hash
+	}
+
+	// We might have received a zero amount invoice. In that case we need to
+	// provide an amount in the request.
+	if request.Invoice != "" {
+		decoded, err := zpay32.Decode(request.Invoice, r.network)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// zero amount invoice!
+		if decoded.MilliSat == nil {
+			rpcReq.Amt = int64(request.Amount)
+		}
 	}
 
 	// Only if there is no payment request set, we will parse the individual

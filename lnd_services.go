@@ -279,7 +279,7 @@ func NewLndServices(cfg *LndServicesConfig) (*GrpcLndServices, error) {
 	signerClient := newSignerClient(conn, macaroons.signerMac)
 	walletKitClient := newWalletKitClient(conn, macaroons.walletKitMac)
 	invoicesClient := newInvoicesClient(conn, macaroons.invoiceMac)
-	routerClient := newRouterClient(conn, macaroons.routerMac)
+	routerClient := newRouterClient(conn, macaroons.routerMac, chainParams)
 	versionerClient := newVersionerClient(conn, macaroons.readonlyMac)
 
 	cleanup := func() {
